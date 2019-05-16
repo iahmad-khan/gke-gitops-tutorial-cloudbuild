@@ -1,0 +1,70 @@
+# Author , IjazAhmad
+# iahmad@ebi.ac.uk
+image: docker:latest
+
+stages:
+  - build
+  - test
+  - deploy
+
+services:
+  - docker:dind
+  
+variables:
+  CI_REGISTRY: dockerhub.ebi.ac.uk
+  CI_REGISTRY_IMAGE: $CI_REGISTRY/$CI_PROJECT_PATH
+  DOCKER_DRIVER: overlay2
+
+before_script:
+  - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY  
+
+docker-build:
+  stage: build
+  script:
+     - docker pull $CI_REGISTRY_IMAGE:latest || true
+     - docker build --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:latest .
+
+docker-push:
+  stage: build
+  script:
+     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+     - docker push $CI_REGISTRY_IMAGE:latest
+
+unit-tests:
+  stage: test
+  script:
+    - echo "running unit tests on the image"
+    - docker run $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA ./test_app.py
+
+
+sast:
+  stage: test
+  script:
+    - echo "running security testing on the image"
+
+
+testing:
+  stage: deploy
+  script:
+     - sed -i "s|CI_IMAGE|$CI_REGISTRY_IMAGE|g" kubernetes.yaml.tpl
+     - sed -i "s|TAG|$CI_COMMIT_SHA|g" kubernetes.yaml.tpl
+     - kubectl apply --namespace webproduction-test -f kubernetes.yaml.tpl
+  environment:
+    name: testing
+    url: https://testing.example.com
+
+  only:
+    - branches
+
+production:
+  stage: deploy
+  script:
+     - sed -i "s|CI_IMAGE|$CI_REGISTRY_IMAGE|g" kubernetes.yaml.tpl
+     - sed -i "s|TAG|$CI_COMMIT_SHA|g" kubernetes.yaml.tpl
+     - kubectl apply --namespace webproduction-prod -f kubernetes.yaml.tpl
+  environment:
+    name: production
+    url: https://production.example.com
+  when: manual
+  only:
+    - master
