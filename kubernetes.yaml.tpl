@@ -15,34 +15,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hello-cloudbuild
+  name: python-app
   labels:
-    app: hello-cloudbuild
+    app: python-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: hello-cloudbuild
+      app: python-app
   template:
     metadata:
       labels:
-        app: hello-cloudbuild
+        app: python-app
     spec:
       containers:
-      - name: hello-cloudbuild
-        image: gcr.io/GOOGLE_CLOUD_PROJECT/hello-cloudbuild:COMMIT_SHA
+      - name: python-app
+        image: CI_IMAGE:TAG
         ports:
         - containerPort: 8080
 ---
 kind: Service
 apiVersion: v1
 metadata:
-  name: hello-cloudbuild
+  name: python-app
 spec:
   selector:
-    app: hello-cloudbuild
+    app: python-app
   ports:
   - protocol: TCP
     port: 80
     targetPort: 8080
-  type: LoadBalancer
+  type: NodePort
